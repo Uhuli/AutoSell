@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "autosell",
+  "version": "${version}",
+  "name": "AutoSell",
+  "description": "Automatically sells your desired items on servers",
+  "authors": [
+    "Uhuli"
+  ],
+  "contact": {
+    "sources": "https://github.com/Uhuli/AutoSell",
+    "issues": "https://github.com/Uhuli/AutoSell/issues"
+  },
+  "license": "MIT-License",
+  "icon": "assets/autosell/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "net.uhuli.autosell.client.AutoSellClient"
+    ]
+  },
+  "mixins": [
+    "autosell.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.5",
+    "minecraft": "~26.1",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

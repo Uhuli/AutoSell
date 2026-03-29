@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "net.uhuli.autosell.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+  ],
+  "client": [
+    "GuiMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
