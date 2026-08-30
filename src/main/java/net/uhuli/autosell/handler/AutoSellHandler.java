@@ -3,6 +3,7 @@ package net.uhuli.autosell.handler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
@@ -19,8 +20,8 @@ import java.util.List;
 
 public class AutoSellHandler {
 
-    private static final long CHECK_INTERVAL_MS = 500;
-    private static final long TRANSFER_DELAY_MS = 80;
+    private static final int CHECK_INTERVAL_TICKS = 10;
+    private static final int TRANSFER_DELAY_TICKS = 2;
     private static final int TOTAL_INVENTORY_SLOTS = 36;
     private static final int GUI_OPEN_TIMEOUT_TICKS = 80;
     private static final int GUI_STABILIZE_TICKS = 5;
@@ -34,8 +35,8 @@ public class AutoSellHandler {
     private int currentTransferIdx = 0;
     private int ticksSinceGuiOpen = 0;
     private int waitTicks = 0;
-    private long lastCheckTime = 0;
-    private long lastActionTime = 0;
+    private int ticksSinceCheck = 0;
+    private int ticksSinceTransfer = 0;
     private int sessionSellCount = 0;
 
     private AutoSellHandler() {
@@ -52,18 +53,22 @@ public class AutoSellHandler {
         isProcessing = false;
         sessionSellCount = 0;
         currentState = State.MONITORING;
+        ticksSinceCheck = CHECK_INTERVAL_TICKS;
         slotsToTransfer.clear();
         SharedConstants.LOGGER.info("AutoSell started");
         playSound(SoundEvents.NOTE_BLOCK_CHIME.value(), 0.7f, 1.6f);
     }
 
     public void stop() {
+        boolean wasActive = isActive;
         isActive = false;
         isProcessing = false;
         currentState = State.IDLE;
         slotsToTransfer.clear();
-        SharedConstants.LOGGER.info("AutoSell stopped – sold {} stack(s) this session", sessionSellCount);
-        playSound(SoundEvents.NOTE_BLOCK_BASS.value(), 0.6f, 0.75f);
+        if (wasActive) {
+            SharedConstants.LOGGER.info("AutoSell stopped – sold {} stack(s) this session", sessionSellCount);
+            playSound(SoundEvents.NOTE_BLOCK_BASS.value(), 0.6f, 0.75f);
+        }
     }
 
     public void tick() {
@@ -76,18 +81,17 @@ public class AutoSellHandler {
         if (!inActiveTransfer && minecraft.gui.screen() != null) return;
 
         LocalPlayer player = minecraft.player;
-        long now = System.currentTimeMillis();
 
         switch (currentState) {
             case MONITORING -> {
-                if (now - lastCheckTime >= CHECK_INTERVAL_MS) {
-                    lastCheckTime = now;
+                if (++ticksSinceCheck >= CHECK_INTERVAL_TICKS) {
+                    ticksSinceCheck = 0;
                     checkInventory(player);
                 }
             }
             case WAITING_FOR_GUI -> tickWaitingForGui(player);
             case TRANSFERRING_ITEMS -> {
-                if (now - lastActionTime >= TRANSFER_DELAY_MS) transferNextItem(player);
+                if (++ticksSinceTransfer >= TRANSFER_DELAY_TICKS) transferNextItem(player);
             }
             case CLOSING_GUI -> tickClosingGui(player);
             default -> { /* IDLE */ }
@@ -121,8 +125,9 @@ public class AutoSellHandler {
         currentState = State.WAITING_FOR_GUI;
         ticksSinceGuiOpen = 0;
         waitTicks = 0;
-        SharedConstants.LOGGER.info("Triggering /sell");
-        player.connection.sendCommand("sell");
+        String command = AutoSellConfig.getInstance().sellCommand;
+        SharedConstants.LOGGER.info("Triggering /{}", command);
+        player.connection.sendCommand(command);
     }
 
     private void tickWaitingForGui(LocalPlayer player) {
@@ -145,6 +150,7 @@ public class AutoSellHandler {
     private void prepareItemTransfer(LocalPlayer player) {
         slotsToTransfer.clear();
         currentTransferIdx = 0;
+        ticksSinceTransfer = 0;
 
         Item target = AutoSellConfig.getInstance().getSelectedItem();
         if (target == null) {
@@ -155,6 +161,10 @@ public class AutoSellHandler {
         AbstractContainerMenu menu = player.containerMenu;
         for (int i = 0; i < menu.slots.size(); i++) {
             Slot slot = menu.slots.get(i);
+            // Container slots holding the target item belong to the shop; quick-moving
+            // those would pull items in instead of selling them.
+            if (slot.container != player.getInventory()) continue;
+
             ItemStack s = slot.getItem();
             if (!s.isEmpty() && s.getItem() == target && slot.mayPickup(player)) {
                 slotsToTransfer.add(i);
@@ -166,14 +176,14 @@ public class AutoSellHandler {
             currentState = State.CLOSING_GUI;
         } else {
             SharedConstants.LOGGER.info("Queued {} stack(s) for transfer", slotsToTransfer.size());
-            lastActionTime = System.currentTimeMillis();
         }
     }
 
     private void transferNextItem(LocalPlayer player) {
+        ticksSinceTransfer = 0;
+
         if (currentTransferIdx >= slotsToTransfer.size()) {
-            SharedConstants.LOGGER.info("Transfer complete ({} stacks)", slotsToTransfer.size());
-            sessionSellCount += slotsToTransfer.size();
+            SharedConstants.LOGGER.info("Transfer complete ({} stacks)", currentTransferIdx);
             currentState = State.CLOSING_GUI;
             waitTicks = 0;
             return;
@@ -190,11 +200,11 @@ public class AutoSellHandler {
 
         if (minecraft.gameMode != null && slot < menu.slots.size()) {
             minecraft.gameMode.handleContainerInput(menu.containerId, slot, 0, ContainerInput.QUICK_MOVE, player);
+            sessionSellCount++;
             SharedConstants.LOGGER.debug("Transferred slot {}", slot);
         }
 
         currentTransferIdx++;
-        lastActionTime = System.currentTimeMillis();
     }
 
     private void tickClosingGui(LocalPlayer player) {
@@ -212,16 +222,17 @@ public class AutoSellHandler {
         isProcessing = false;
         waitTicks = 0;
         ticksSinceGuiOpen = 0;
+        ticksSinceCheck = 0;
+        ticksSinceTransfer = 0;
         slotsToTransfer.clear();
     }
-
 
     @Contract(pure = true)
     private boolean hasOpenContainer(@NonNull LocalPlayer player) {
         return player.containerMenu != player.inventoryMenu;
     }
 
-    private void playSound(net.minecraft.sounds.SoundEvent sound, float volume, float pitch) {
+    private void playSound(SoundEvent sound, float volume, float pitch) {
         if (minecraft.player != null) {
             minecraft.player.playSound(sound, volume, pitch);
         }
@@ -229,10 +240,6 @@ public class AutoSellHandler {
 
     public boolean isActive() {
         return isActive;
-    }
-
-    public State getCurrentState() {
-        return currentState;
     }
 
     public int getSessionSellCount() {

@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Hud;
 import net.minecraft.world.item.ItemStack;
 import net.uhuli.autosell.config.AutoSellConfig;
+import net.uhuli.autosell.handler.AutoSellHandler;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -20,13 +21,9 @@ public class HudMixin {
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void renderAutoSellHud(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-        AutoSellConfig config = AutoSellConfig.getInstance();
-
-        if (!config.isEnabled) {
-            return;
-        }
-
-        if (minecraft.player == null || minecraft.gui.screen() != null) {
+        if (!AutoSellHandler.getInstance().isActive()
+                || minecraft.player == null
+                || minecraft.gui.screen() != null) {
             return;
         }
 
@@ -44,8 +41,8 @@ public class HudMixin {
         graphics.fill(boxX, boxY, boxX + 1, boxY + boxSize, borderColor);
         graphics.fill(boxX + boxSize - 1, boxY, boxX + boxSize, boxY + boxSize, borderColor);
 
-        if (config.getSelectedItem() != null) {
-            ItemStack stack = new ItemStack(config.getSelectedItem());
+        ItemStack stack = AutoSellConfig.getInstance().getSelectedItemStack();
+        if (!stack.isEmpty()) {
             graphics.item(stack, boxX + 4, boxY + 4);
         }
     }

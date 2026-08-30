@@ -29,14 +29,12 @@ public class AutoSellClient implements ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register((_, _) -> {
             SharedConstants.LOGGER.info("Disconnected from server, stopping AutoSell");
             AutoSellHandler.getInstance().stop();
-            AutoSellConfig.getInstance().setEnabled(false);
         });
 
         AutoSellConfig.getInstance();
 
         SharedConstants.LOGGER.info("AutoSell initialized successfully");
     }
-
 
     private void handleKeyInput(Minecraft client) {
         if (KeyBindings.getOpenGuiKey().consumeClick()) {

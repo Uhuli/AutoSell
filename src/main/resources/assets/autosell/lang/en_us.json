@@ -1,16 +1,19 @@
 {
   "key.category.autosell.category": "AutoSell",
   "autosell.key.open": "Open AutoSell Menu",
-
   "autosell.gui.title": "AutoSell",
   "autosell.gui.search.hint": "Search by name or ID...",
   "autosell.gui.selected.label": "Selling:",
   "autosell.gui.selected.none": "None selected",
   "autosell.gui.threshold.label": "Inventory Threshold",
+  "autosell.gui.command.label": "Command:",
   "autosell.gui.status.label": "Status",
   "autosell.gui.toggle.start": "▶  Start AutoSell",
   "autosell.gui.toggle.stop": "■  Stop AutoSell",
-
+  "autosell.gui.items.count": "%s items",
+  "autosell.gui.items.filtered": "%s / %s",
+  "autosell.gui.sold.count": "✓ %s stacks",
+  "autosell.narration.selector": "Item selector",
   "autosell.status.inactive": "Inactive",
   "autosell.status.monitoring": "Monitoring inventory…",
   "autosell.status.waiting": "Waiting for sell GUI…",
