@@ -17,6 +17,7 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class AutoSellHandler {
 
@@ -102,15 +103,15 @@ public class AutoSellHandler {
         if (isProcessing) return;
 
         AutoSellConfig cfg = AutoSellConfig.getInstance();
-        Item target = cfg.getSelectedItem();
-        if (target == null) return;
+        Set<Item> targets = cfg.getSelectedItems();
+        if (targets.isEmpty()) return;
 
         int filled = 0, targetCount = 0;
         for (int i = 0; i < TOTAL_INVENTORY_SLOTS; i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
                 filled++;
-                if (stack.getItem() == target) targetCount++;
+                if (targets.contains(stack.getItem())) targetCount++;
             }
         }
 
@@ -152,8 +153,8 @@ public class AutoSellHandler {
         currentTransferIdx = 0;
         ticksSinceTransfer = 0;
 
-        Item target = AutoSellConfig.getInstance().getSelectedItem();
-        if (target == null) {
+        Set<Item> targets = AutoSellConfig.getInstance().getSelectedItems();
+        if (targets.isEmpty()) {
             currentState = State.CLOSING_GUI;
             return;
         }
@@ -166,7 +167,7 @@ public class AutoSellHandler {
             if (slot.container != player.getInventory()) continue;
 
             ItemStack s = slot.getItem();
-            if (!s.isEmpty() && s.getItem() == target && slot.mayPickup(player)) {
+            if (!s.isEmpty() && targets.contains(s.getItem()) && slot.mayPickup(player)) {
                 slotsToTransfer.add(i);
             }
         }

@@ -6,6 +6,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -49,6 +50,8 @@ public class ItemSelectorWidget extends AbstractWidget {
     private final int itemsPerRow;
     private final int visibleRows;
     private List<Entry> filteredItems;
+    private String currentQuery = "";
+    private boolean onlySelected = false;
     private int scrollOffset = 0;
     private int hoveredIndex = -1;
     private boolean draggingScrollbar = false;
@@ -117,7 +120,6 @@ public class ItemSelectorWidget extends AbstractWidget {
 
         int startIdx = scrollOffset * itemsPerRow;
         int maxVisible = itemsPerRow * visibleRows;
-        Item selected = parent.getSelectedItem();
         hoveredIndex = indexAt(mouseX, mouseY);
 
         for (int i = 0; i < maxVisible; i++) {
@@ -131,7 +133,7 @@ public class ItemSelectorWidget extends AbstractWidget {
 
             Entry entry = filteredItems.get(absIdx);
             boolean isHovered = absIdx == hoveredIndex;
-            boolean isSelected = (entry.item() == selected);
+            boolean isSelected = parent.isSelected(entry.item());
 
             // Slot background
             int slotFill = isSelected ? C_SEL_FILL : (isHovered ? C_SLOT_HOVER : C_SLOT_NONE);
@@ -215,8 +217,13 @@ public class ItemSelectorWidget extends AbstractWidget {
 
         int clicked = indexAt(event.x(), event.y());
         if (clicked >= 0) {
-            parent.selectItem(filteredItems.get(clicked).item());
+            parent.toggleItem(filteredItems.get(clicked).item());
         }
+    }
+
+    @Override
+    public void playDownSound(@NonNull SoundManager soundManager) {
+        // The screen plays a pitched sound instead.
     }
 
     @Override
@@ -249,16 +256,35 @@ public class ItemSelectorWidget extends AbstractWidget {
     }
 
     public void updateFilter(@NonNull String searchText) {
-        String query = searchText.strip().toLowerCase(Locale.ROOT);
+        currentQuery = searchText.strip().toLowerCase(Locale.ROOT);
+        applyFilter();
+    }
 
-        if (query.isEmpty()) {
+    public void setOnlySelected(boolean onlySelected) {
+        this.onlySelected = onlySelected;
+        applyFilter();
+    }
+
+    public boolean isOnlySelected() {
+        return onlySelected;
+    }
+
+    /** Call after the selection changed. */
+    public void refresh() {
+        if (onlySelected) applyFilter();
+    }
+
+    private void applyFilter() {
+        if (currentQuery.isEmpty() && !onlySelected) {
             filteredItems = allItems;
         } else {
             List<Entry> matches = new ArrayList<>();
             for (Entry entry : allItems) {
-                if (entry.name().contains(query) || entry.id().contains(query)) {
-                    matches.add(entry);
-                }
+                if (onlySelected && !parent.isSelected(entry.item())) continue;
+                if (!currentQuery.isEmpty()
+                        && !entry.name().contains(currentQuery)
+                        && !entry.id().contains(currentQuery)) continue;
+                matches.add(entry);
             }
             filteredItems = matches;
         }
