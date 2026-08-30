@@ -4,6 +4,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import net.uhuli.autosell.SharedConstants;
 import net.uhuli.autosell.config.AutoSellConfig;
 import net.uhuli.autosell.gui.AutoSellScreen;
@@ -39,10 +40,11 @@ public class AutoSellClient implements ClientModInitializer {
 
     private void handleKeyInput(Minecraft client) {
         if (KeyBindings.getOpenGuiKey().consumeClick()) {
-            if (client.screen == null) {
-                client.setScreen(new AutoSellScreen());
-            } else if (client.screen instanceof AutoSellScreen) {
-                client.setScreen(null);
+            final Gui gui = client.gui;
+            if (gui.screen() == null) {
+                gui.setScreen(new AutoSellScreen());
+            } else if (gui.screen() instanceof AutoSellScreen) {
+                gui.setScreen(null);
             }
         }
     }

@@ -2,8 +2,8 @@ package net.uhuli.autosell.mixin;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.world.item.ItemStack;
 import net.uhuli.autosell.config.AutoSellConfig;
 import org.spongepowered.asm.mixin.Final;
@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Gui.class)
-public class GuiMixin {
+@Mixin(Hud.class)
+public class HudMixin {
 
     @Shadow @Final private Minecraft minecraft;
 
@@ -26,7 +26,7 @@ public class GuiMixin {
             return;
         }
 
-        if (minecraft.player == null || minecraft.screen != null) {
+        if (minecraft.player == null || minecraft.gui.screen() != null) {
             return;
         }
 

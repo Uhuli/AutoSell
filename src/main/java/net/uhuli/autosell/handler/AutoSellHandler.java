@@ -73,7 +73,7 @@ public class AutoSellHandler {
                 || currentState == State.TRANSFERRING_ITEMS
                 || currentState == State.CLOSING_GUI;
 
-        if (!inActiveTransfer && minecraft.screen != null) return;
+        if (!inActiveTransfer && minecraft.gui.screen() != null) return;
 
         LocalPlayer player = minecraft.player;
         long now = System.currentTimeMillis();
