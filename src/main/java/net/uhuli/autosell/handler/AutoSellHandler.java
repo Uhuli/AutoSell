@@ -27,6 +27,7 @@ public class AutoSellHandler {
     private static final int GUI_OPEN_TIMEOUT_TICKS = 80;
     private static final int GUI_STABILIZE_TICKS = 5;
     private static final int GUI_CLOSE_TICKS = 4;
+    private static final int MAX_CONSECUTIVE_FAILURES = 3;
     private static AutoSellHandler INSTANCE;
     private final Minecraft minecraft;
     private final List<Integer> slotsToTransfer = new ArrayList<>();
@@ -38,6 +39,7 @@ public class AutoSellHandler {
     private int waitTicks = 0;
     private int ticksSinceCheck = 0;
     private int ticksSinceTransfer = 0;
+    private int consecutiveFailures = 0;
     private int sessionSellCount = 0;
 
     private AutoSellHandler() {
@@ -55,6 +57,7 @@ public class AutoSellHandler {
         sessionSellCount = 0;
         currentState = State.MONITORING;
         ticksSinceCheck = CHECK_INTERVAL_TICKS;
+        consecutiveFailures = 0;
         slotsToTransfer.clear();
         SharedConstants.LOGGER.info("AutoSell started");
         playSound(SoundEvents.NOTE_BLOCK_CHIME.value(), 0.7f, 1.6f);
@@ -138,14 +141,33 @@ public class AutoSellHandler {
             if (waitTicks >= GUI_STABILIZE_TICKS) {
                 waitTicks = 0;
                 ticksSinceGuiOpen = 0;
+                consecutiveFailures = 0;
                 currentState = State.TRANSFERRING_ITEMS;
                 prepareItemTransfer(player);
                 SharedConstants.LOGGER.info("Sell GUI stable – starting transfer");
             }
         } else if (ticksSinceGuiOpen > GUI_OPEN_TIMEOUT_TICKS) {
-            SharedConstants.LOGGER.warn("Sell GUI timed out – aborting");
-            resetToMonitoring();
+            consecutiveFailures++;
+            SharedConstants.LOGGER.warn("Sell GUI timed out – aborting ({}/{})",
+                    consecutiveFailures, MAX_CONSECUTIVE_FAILURES);
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                abortAfterRepeatedFailures();
+            } else {
+                resetToMonitoring();
+            }
         }
+    }
+
+    /** Otherwise the state machine retries for as long as the inventory stays full. */
+    private void abortAfterRepeatedFailures() {
+        String command = AutoSellConfig.getInstance().sellCommand;
+        SharedConstants.LOGGER.warn("'/{}' failed {} times in a row – stopping AutoSell",
+                command, consecutiveFailures);
+        stop();
+        minecraft.gui.chatListener().handleSystemMessage(
+                Component.translatable("autosell.message.command_failed", command, MAX_CONSECUTIVE_FAILURES)
+                        .withStyle(s -> s.withColor(0xFF5555)),
+                false);
     }
 
     private void prepareItemTransfer(LocalPlayer player) {
@@ -243,6 +265,11 @@ public class AutoSellHandler {
         return isActive;
     }
 
+    /** Running with nothing selected — it would idle forever, so it is surfaced. */
+    public boolean isMisconfigured() {
+        return isActive && AutoSellConfig.getInstance().getSelectedItems().isEmpty();
+    }
+
     public int getSessionSellCount() {
         return sessionSellCount;
     }
@@ -251,6 +278,10 @@ public class AutoSellHandler {
         if (!isActive) {
             return Component.translatable("autosell.status.inactive")
                     .withStyle(s -> s.withColor(0x666677));
+        }
+        if (isMisconfigured()) {
+            return Component.translatable("autosell.status.no_items")
+                    .withStyle(s -> s.withColor(0xFFAA00));
         }
         return switch (currentState) {
             case MONITORING -> Component.translatable("autosell.status.monitoring")
@@ -267,6 +298,7 @@ public class AutoSellHandler {
 
     public int getStatusDotColor() {
         if (!isActive) return 0xFF444455;
+        if (isMisconfigured()) return 0xFFFFAA00;
         return switch (currentState) {
             case MONITORING -> 0xFF44DD66;
             case WAITING_FOR_GUI,

@@ -71,6 +71,14 @@ public class HudMixin {
         graphics.fill(boxX, boxY, boxX + 1, boxY + height, borderColor);
         graphics.fill(boxX + width - 1, boxY, boxX + width, boxY + height, borderColor);
 
+        if (count == 0) {
+            graphics.centeredText(minecraft.font, Component.literal("!"),
+                    boxX + width / 2,
+                    boxY + (height - minecraft.font.lineHeight) / 2 + 1,
+                    0xFFFFAA00);
+            return;
+        }
+
         for (int i = 0; i < shown; i++) {
             int col = i % perRow;
             int row = i / perRow;

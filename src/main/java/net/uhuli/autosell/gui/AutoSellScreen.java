@@ -69,6 +69,7 @@ public class AutoSellScreen extends Screen {
 
     private ItemSelectorWidget itemSelector;
     private EditBox commandBox;
+    private Button toggleButton;
 
     private int panelX, panelY, panelH, gridH;
     private int ySepGrid, yChips, ySepSlider, ySlider, ySepCmd, yCmd, ySepStatus, yStatus, ySepButton, yButton;
@@ -141,17 +142,29 @@ public class AutoSellScreen extends Screen {
                 .withStyle(s -> s.withColor(C_LABEL)));
         this.addRenderableWidget(this.commandBox);
 
-        Button toggleButton = Button.builder(getToggleLabel(), btn -> {
+        this.toggleButton = Button.builder(getToggleLabel(), btn -> {
             applyCommandInput();
             if (handler.isActive()) {
                 handler.stop();
-                btn.setMessage(getToggleLabel());
+                updateToggleButton();
             } else {
                 handler.start();
                 this.onClose();
             }
         }).bounds(panelX + 15, panelY + yButton, PANEL_W - 30, BUTTON_H).build();
-        this.addRenderableWidget(toggleButton);
+        this.addRenderableWidget(this.toggleButton);
+        updateToggleButton();
+    }
+
+    /** Starting needs a selection; stopping stays possible so the user is never trapped. */
+    private void updateToggleButton() {
+        if (toggleButton == null) return;
+        boolean hasItems = !config.getSelectedStacks().isEmpty();
+        toggleButton.active = handler.isActive() || hasItems;
+        toggleButton.setMessage(getToggleLabel());
+        toggleButton.setTooltip(hasItems
+                ? null
+                : Tooltip.create(Component.translatable("autosell.gui.toggle.no_items")));
     }
 
     /** The grid absorbs whatever height is left, so the panel always fits the window. */
@@ -277,6 +290,7 @@ public class AutoSellScreen extends Screen {
         }
         if (result != ToggleResult.LIMIT_REACHED) {
             itemSelector.refresh();
+            updateToggleButton();
         }
     }
 
@@ -284,6 +298,7 @@ public class AutoSellScreen extends Screen {
         config.removeSelected(item);
         playUiSound(0.8F);
         itemSelector.refresh();
+        updateToggleButton();
     }
 
     private void applyCommandInput() {
@@ -299,6 +314,11 @@ public class AutoSellScreen extends Screen {
     public void removed() {
         applyCommandInput();
         config.save();
+        // Deferred to close rather than to the last removed chip, so clearing the
+        // list to re-pick does not stop a running session.
+        if (handler.isActive() && config.getSelectedStacks().isEmpty()) {
+            handler.stop();
+        }
         super.removed();
     }
 
